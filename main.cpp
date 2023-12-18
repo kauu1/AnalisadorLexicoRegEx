@@ -15,7 +15,7 @@ bool in_array(const std::string &value, const std::vector<std::string> &array)
 
 int check_char(char c, unsigned int line, std::string alphabet){
     if(alphabet.find(c)==std::string::npos){
-        std::cerr << "Erro: " << c << "does not belong to the language alphabet" << std::endl;
+        std::cerr << "Erro: '" << c << "' does not belong to the language alphabet in line: " << line << std::endl;
         return 0;
     }else{
         return 1;
@@ -49,6 +49,12 @@ int main(){
         std::regex("[*]|[/]") //multiplicative operators
     };
 
+    std::regex comment_same_line ("\\{.*\\}");
+
+    std::regex comment_other_line ("\\{.*[^\\}]");
+
+    std::regex closed_comment (".*\\}");
+
     std::vector<std::string>key_words = {"program", "var", "integer", "real", "boolean", "procedure",
     "begin", "end", "if", "then", "else", "while", "do", "not"};
 
@@ -56,9 +62,14 @@ int main(){
 
     int lines = 1;
 
+    bool comment_open = false;
+    int open_comment_line = 0;
+
     std::string str = "\0";
 
     while(program_template.peek() != EOF){
+        
+        std::smatch matches;
 
         std::getline(program_template, str); //pega linha por linha do txt de entrada
         
@@ -66,15 +77,49 @@ int main(){
             check_char(x, lines, alphabet);
         }
 
+        while (std::regex_search(str, matches, comment_same_line)) {
+
+            if(matches.empty()) break;
+
+            else
+            {
+                str = std::regex_replace(str, comment_same_line, "");
+            }
+        
+        }
+        
+        if(comment_open){
+            if(str.find("}") != std::string::npos){
+                str = std::regex_replace(str, closed_comment, "");
+                comment_open = false;
+            }
+            else{
+                ++lines;
+                continue;
+            }
+        }
+
+        while (std::regex_search(str, matches, comment_other_line)) {
+
+            open_comment_line = lines;
+
+            if(matches.empty()) break;
+
+            else
+            {
+                str = std::regex_replace(str, comment_other_line, "");
+                comment_open = true;
+            }
+        }
+
         for(int i = 0; i < 8; i++){
-            std::smatch matches;
 
             while(std::regex_search(str, matches, rules[i])){
                 for(auto match : matches)
                 {
                     switch (i) {
-                        case 0:
 
+                        case 0:
                             if(in_array(match, key_words)) table << lines << ' ' << match << " key_word\n";
                             else if (match == "or") table << lines << ' ' << match << " additive operator\n";
                             else if (match == "and") table << lines << ' ' << match << " multiplicative operator\n";
@@ -108,6 +153,7 @@ int main(){
                         case 7:
                             table << lines << ' ' << match << " multiplicative operators\n";
                             break;
+                        
                     }
 
                     str = matches.suffix().str();
@@ -116,6 +162,10 @@ int main(){
         }
 
         ++lines;
+    }
+
+    if(comment_open){
+        std::cerr << "Erro: comment open in line: " << open_comment_line << "\n";
     }
 
     return 0;
