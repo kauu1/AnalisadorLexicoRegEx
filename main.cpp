@@ -43,11 +43,11 @@ int main(){
 
     //conjunto de regras regex indentificadoras
     std::vector<std::regex> rules = {
-        std::regex("\\b[a-zA-Z]\\w+"), //words
-        std::regex("\\b\\d+\\b"), //integers
-        std::regex("\\b\\d+[.]\\d*"), //float
+        std::regex("[a-zA-Z]\\w*"), //words
+        std::regex("\\d+[.]\\d*"), //float
+        std::regex("\\d+"), //integers
+        std::regex(":="), //attribuition
         std::regex(":(?!=)|[;]|[.]|[,]|[(]|[)]"), //delimiters
-        std::regex("[:][=]"), //attribuition
         std::regex("(?![<|>])=|[<|>][=]|[<][>]|(?!<)>|[<]"), //relational operators
         std::regex("[+]|[-]"), //additive operators
         std::regex("[*]|[/]") //multiplicative operators
@@ -153,19 +153,19 @@ int main(){
                             break;
                         
                         case 1:
-                            table << lines << ' ' << match << " integer\n";
-                            break;
-                        
-                        case 2:
                             table << lines << ' ' << match << " float\n";
                             break;
                         
+                        case 2:
+                            table << lines << ' ' << match << " integer\n";
+                            break;
+                        
                         case 3:
-                            table << lines << ' ' << match << " delimiter\n";
+                            table << lines << ' ' << match << " attribution\n";
                             break;
                         
                         case 4:
-                            table << lines << ' ' << match << " attribution\n";
+                            table << lines << ' ' << match << " delimiter\n";
                             break;
                         
                         case 5:
@@ -181,8 +181,9 @@ int main(){
                             break;
                         
                     }
+                    str = matches.prefix().str();
 
-                    str = matches.suffix().str();
+                    str += matches.suffix().str();
                 }
             }
         }
