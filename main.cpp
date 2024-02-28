@@ -14,14 +14,28 @@ bool in_array(const std::string &value, const std::vector<std::string> &array)
 }
 
 //checa se um char pertence a um alfabeto
-int check_char(char c, unsigned int line, std::string alphabet){
-    if(alphabet.find(c)==std::string::npos){
-        std::cerr << "Erro: '" << c << "' does not belong to the language alphabet in line: " << line << std::endl;
-        return 0;
-    }else{
-        return 1;
+int check_char(char c, unsigned int line, unsigned int current_state){
+
+    for(unsigned char cmp = 0; cmp < 255; cmp++){
+        if(cmp == 38){
+            continue;
+        }
+        if(c == cmp){
+            return 1;
+        }
     }
+    if(current_state != 1){
+        std::cerr << "Line " << line << " "<< c << " does not belong to the language alphabet\n";
+    }
+    return 0;
 }
+
+
+typedef struct
+{
+    const std::string name;
+    const std::regex pattern;
+} Pattern;
 
 int main(){
 
@@ -34,23 +48,23 @@ int main(){
     }
 
     //abertura do arquivo de escrita da tabela
-    std::ofstream table;
-    table.open("table.txt", std::ofstream::out);
+    std::ofstream output_file;
+    output_file.open("output_file.txt", std::ofstream::out);
 
-    if(table.is_open()){
+    if(output_file.is_open()){
         std::cout << "File created successfully" << std::endl;
     }
 
     //conjunto de regras regex indentificadoras
-    std::vector<std::regex> rules = {
-        std::regex("[a-zA-Z]\\w*"), //words
-        std::regex("\\d+[.]\\d*"), //float
-        std::regex("\\d+"), //integers
-        std::regex(":="), //attribuition
-        std::regex(":(?!=)|[;]|[.]|[,]|[(]|[)]"), //delimiters
-        std::regex("(?![<|>])=|[<|>][=]|[<][>]|(?!<)>|[<]"), //relational operators
-        std::regex("[+]|[-]"), //additive operators
-        std::regex("[*]|[/]") //multiplicative operators
+    std::vector<Pattern> rules = {
+        {"words", std::regex("[a-zA-Z]\\w*")}, //words
+        {"float", std::regex("\\d+[.]\\d*")}, //float
+        {"interger", std::regex("\\d+")}, //integers
+        {"attribution", std::regex(":=")}, //attribuition
+        {"delimiter", std::regex(":(?!=)|[;]|[.]|[,]|[(]|[)]")}, //delimiters
+        {"relational operators", std::regex("(?![<|>])=|[<|>][=]|[<][>]|(?!<)>|[<]")}, //relational operators
+        {"additive operators", std::regex("[+]|[-]")}, //additive operators
+        {"multiplicative operators", std::regex("[*]|[/]")} //multiplicative operators
     };
 
     //regras regex e variaveis para o tratamento de comentarios
@@ -70,8 +84,6 @@ int main(){
     std::vector<std::string>key_words = {"program", "var", "integer", "real", "boolean", "procedure",
     "begin", "end", "if", "then", "else", "while", "do", "not"};
 
-    std::string alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 \t\n{}();:.(),=<>+-*/";
-
     //contador de linhas
     int lines = 1;
 
@@ -79,22 +91,24 @@ int main(){
 
     //permanece em loop ate o fim do arquivo a ser lido
     while(program_template.peek() != EOF){
-        
-        
+
+    
         std::smatch matches; //variavel para computar os "matches" de uma regra regex
 
         std::getline(program_template, str); //pega linha por linha do txt de entrada
-        
+
+        std::string::const_iterator start = str.begin(), end = str.end();
+        int match_size, match_position;      
+
         //checagem de cada caracter da string no alfabeto
         for(char x : str){
-            check_char(x, lines, alphabet);
+            check_char(x, lines, 0);
         }
 
         //procura um comentario que abre e fecha na mesma linha
         //caso exista ele apaga tudo que esta dentro do comentario
-        while (std::regex_search(str, matches, comment_same_line)) {
-
-            if(matches.empty()) break;
+        if (std::regex_search(str, matches, comment_same_line)) {
+            if(matches.empty()) continue;
 
             else
             {
@@ -123,69 +137,79 @@ int main(){
         //procura um comentario que foi aberto e nao fechado na mesma linha
         //caso ache, ele remove todos os caracteres da linha apos o comentario aberto
         //e tambem coloca a variavel "comment_open" para "true"
-        while (std::regex_search(str, matches, comment_other_line)) {
-
+        if(std::regex_search(str, matches, comment_other_line)) {
             open_comment_line = lines; //salva a linha do comentario aberto
 
-            if(matches.empty()) break;
+            if(matches.empty()){}
 
             else
-            {
+            {   
                 str = std::regex_replace(str, comment_other_line, "");
                 comment_open = true;
+                continue;
             }
         }
         //em cada linha, sao checadas todas as regras do vetor "rules" na ordem que foram postas na declaracao do vetor
-        //e os "matches" sao colocados no arquivo "table.txt" no formato "linha" "indentificado" "tipo"
+        //e os "matches" sao colocados no arquivo "output_file.txt" no formato "linha" "indentificado" "tipo"
 
-        for(int i = 0; i < 8; i++){
+        std::string type, token;
 
-            while(std::regex_search(str, matches, rules[i])){
-                for(auto match : matches)
+        while (true)
+        {
+            if(comment_open) break;
+            match_size = 0;
+            match_position = str.size();
+
+            for (auto pattern : rules)
+            {
+                // procura por uma match por todos os padrões
+                if (std::regex_search(start, end, matches, pattern.pattern))
                 {
-                    switch (i) {
+                    // Se a procura resultou em um match, duas condições são verificadas:
 
-                        case 0:
-                            if(in_array(match, key_words)) table << lines << ' ' << match << " key_word\n";
-                            else if (match == "or") table << lines << ' ' << match << " additive operator\n";
-                            else if (match == "and") table << lines << ' ' << match << " multiplicative operator\n";
-                            else table << lines << ' ' << match << " indentifier\n";
-                            break;
-                        
-                        case 1:
-                            table << lines << ' ' << match << " float\n";
-                            break;
-                        
-                        case 2:
-                            table << lines << ' ' << match << " integer\n";
-                            break;
-                        
-                        case 3:
-                            table << lines << ' ' << match << " attribution\n";
-                            break;
-                        
-                        case 4:
-                            table << lines << ' ' << match << " delimiter\n";
-                            break;
-                        
-                        case 5:
-                            table << lines << ' ' << match << " relational operators\n";
-                            break;
-                        
-                        case 6:
-                            table << lines << ' ' << match << " additive operators\n";
-                            break;
-
-                        case 7:
-                            table << lines << ' ' << match << " multiplicative operators\n";
-                            break;
-                        
+                    // 1: Caso a posição do match corrente seja menor do que a menor posição previamente escolhida, o match corrente torna-se o escolhido
+                    // Em outras palavras, o match mais a esquerda é escolhido
+                    if (matches.position() < match_position)
+                    {
+                        match_position = matches.position();
+                        match_size = matches.length();
+                        type = pattern.name;
+                        token = matches[0];
                     }
-                    str = matches.prefix().str();
-
-                    str += matches.suffix().str();
+                    // 2: Caso a posição do match corrente coincida com o match previamente escolhido, torna-se o escolhido aquele que tem mais caracteres
+                    // Importante para tratar os casos de <= e <, em que ambos começam no mesmo lugar, porém o <= contém mais caracteres
+                    else if (matches.position() == match_position)
+                    {
+                        if (matches.length() > match_size)
+                        {
+                            match_size = matches.length();
+                            type = pattern.name;
+                            token = matches[0];
+                        }
+                    }
                 }
             }
+
+            // Caso a busca não encontre um match, interrompe o laço e vai para a proxima linha (se possivel)
+
+            if (match_size == 0)
+                break;
+            
+
+            if(type == "words"){
+                if(in_array(token, key_words)){
+                    type = "key_word";
+                }else{
+                    type = "identifier";
+                }
+            }
+
+            // A escrita é performada no arquivo de saída
+            output_file << lines << ' ' << token << ' ' << type << std::endl;
+            // std::cout << lines << ' ' << token << ' ' << type << std::endl;
+
+            // Atualiza-se o inicio para logo após ao match encontrado
+            start += match_position + match_size;
         }
 
         ++lines;
@@ -196,7 +220,7 @@ int main(){
     }
 
     program_template.close();
-    table.close();
+    output_file.close();
 
     return 0;
 }

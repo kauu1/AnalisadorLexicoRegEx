@@ -1,0 +1,44 @@
+6 begin key_word
+7 N1 identifier
+7 := attribution
+7 7.5 float
+7 ; delimiter
+8 N2 identifier
+8 := attribution
+8 5.5 float
+8 ; delimiter
+9 N3 identifier
+9 := attribution
+9 4.5 float
+9 ; delimiter
+10 S identifier
+10 := attribution
+10 N1 identifier
+10 + additive operators
+10 N2 identifier
+10 * multiplicative operators
+10 N3 identifier
+10 ; delimiter
+11 M identifier
+11 := attribution
+11 S identifier
+11 / multiplicative operators
+11 3 interger
+11 ; delimiter
+12 if key_word
+12 ( delimiter
+12 M identifier
+12 >= relational operators
+12 5 interger
+12 ) delimiter
+12 Then identifier
+13 Result identifier
+13 := attribution
+13 True identifier
+14 else key_word
+15 Result identifier
+15 := attribution
+15 False identifier
+15 ; delimiter
+16 end key_word
+16 . delimiter
